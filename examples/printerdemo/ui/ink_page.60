@@ -21,7 +21,6 @@ export InkPage := Page {
     property <[InkLevel]> ink_levels;
     property <bool> page_visible;
 
-
     Rectangle {
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
@@ -31,39 +30,65 @@ export InkPage := Page {
         HorizontalLayout {
             spacing: root.width * 5%;
             for color_info in ink_levels : Rectangle {
-                ink := Rectangle {
-                    width: parent.width;
-                    height: parent.height * color_info.level;
-                    border-radius: width / 2;
-                    border-width: 2px;
-                    y: parent.height - self.height;
-                    background: color_info.color;
-                    states [
-                        innactive when !root.page_visible : {
-                            height: border-radius; // FIXME: should be 0, but ugly otherwise
-                        }
-                    ]
-                    transitions [
-                        out innactive : {
-                            animate height { duration: 750ms; easing: ease_in_out; }
-                        }
-                        in innactive : {
-                            animate height { duration: 200ms; easing: ease_in; }
-                        }
-                    ]
+                property <float> shown_percent: color_info.level;
+                states [
+                    innactive when !root.page_visible : {
+                        shown_percent: 0%;
+                    }
+                ]
+                transitions [
+                    out innactive : {
+                        animate shown_percent { duration: 750ms; easing: ease_in_out; }
+                    }
+                    in innactive : {
+                        animate shown_percent { duration: 200ms; easing: ease_in; }
+                    }
+                ]
+
+                clip := Clip {
+                    property <length> ink_pixels: parent.height * parent.shown_percent;
+                    property <length> ink_pixels_left: parent.height * color_info.level - ink_pixels;
+
+                    y: parent.height - (parent.height * color_info.level);
+                    height: parent.height * color_info.level - width / 2;
+
+                    ink := Rectangle {
+                        width: parent.width;
+                        height: parent.height + border-width;
+                        y: parent.ink_pixels_left;
+                        border-width: 2px;
+                        background: color_info.color;                        
+                    }
                 }
-                Rectangle {
-                    y: ink.y;
-                    height: min(parent.height - y - ink.border-radius, ink.border-radius);
-                    border-width: ink.border-width;
-                    background: ink.background;
+
+                Path { // bottom of the ink tube
+                    property <float> bottom_fill_in_percent: (parent.width / 2) / parent.height;
+                    property <length> bottom_ink_pixel_fill: min(bottom_fill_in_percent, parent.shown_percent) * parent.height;
+
+                    x: 0;
+                    y: parent.height - bottom_ink_pixel_fill - 1px;
+                    height: bottom_ink_pixel_fill;
+
+                    MoveTo {
+                        x: 0;
+                        y: 0;
+                    }
+                    ArcTo {
+                        radius-x: 4;
+                        radius-y: 4;
+                        x: 10;
+                        y: 0;
+                    }
+                    Close {}
+                    fill: ink.background;
+                    stroke-width: 1px;
                 }
-                Rectangle {
-                    y: ink.y;
+                Rectangle { // upper horizontal ink level fill indicator
+                    y: clip.y;
                     height: ink.border-width;
                     background: DemoPalette.neutral_box;
                 }
-                Rectangle {
+                Rectangle { // surrounding ink "tube" frame
                     border-radius: width / 2;
                     border-color: DemoPalette.neutral_box;
                     border-width: ink.border-width;
